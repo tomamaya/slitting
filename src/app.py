@@ -3,21 +3,21 @@ from dash import dcc, html, Input, Output, State
 from dash.exceptions import PreventUpdate
 import pandas as pd
 from scipy.optimize import linprog
-from flask import Flask, request, send_from_directory
+import base64
+import io
 import os
 
-# Initialize the Flask and Dash apps
-server = Flask(__name__)
-app = dash.Dash(__name__, server=server)
+# Initialize the Dash app
+app = dash.Dash(__name__)
 
 # Define paths for default files
 DEFAULT_COILS_PATH = 'inventory.xlsx'
 DEFAULT_ORDERS_PATH = 'order.xlsx'
 
-# Ensure default files exist in the current directory
+# Ensure default files exist in the assets directory
 for file in [DEFAULT_COILS_PATH, DEFAULT_ORDERS_PATH]:
     if not os.path.isfile(file):
-        raise FileNotFoundError(f"Default file '{file}' not found.")
+        raise FileNotFoundError(f"Default file '{file}' not found in 'assets' directory.")
 
 # Define the layout of the app
 app.layout = html.Div([
@@ -44,9 +44,9 @@ app.layout = html.Div([
     
     # Download links for default files
     html.Div([
-        html.A("Download Default Coils File", id="download-coils-link", href="/download/inventory.xlsx", download="inventory.xlsx"),
+        html.A("Download Default Coils File", id="download-coils-link", href="/assets/inventory.xlsx", download="inventory.xlsx"),
         html.Br(),
-        html.A("Download Default Orders File", id="download-orders-link", href="/download/order.xlsx", download="order.xlsx"),
+        html.A("Download Default Orders File", id="download-orders-link", href="/assets/order.xlsx", download="order.xlsx"),
     ], style={'margin-bottom': '20px'}),
     
     # Instructions for running optimization
@@ -122,9 +122,6 @@ def update_output(coils_file, orders_file, coils_filename, orders_filename, n_cl
 
     try:
         # Decode and process the uploaded files
-        import base64
-        import io
-
         def parse_file(file_contents):
             content_type, content_string = file_contents.split(',')
             decoded = base64.b64decode(content_string)
@@ -160,11 +157,6 @@ def update_output(coils_file, orders_file, coils_filename, orders_filename, n_cl
 
     except Exception as e:
         return f"An error occurred: {e}", ""
-
-# Route to serve static files
-@server.route('/download/<path:filename>')
-def download_file(filename):
-    return send_from_directory('.', filename, as_attachment=True)
 
 # Run the app
 if __name__ == '__main__':
