@@ -35,9 +35,9 @@ app.layout = html.Div([
     
     # Download links for default files
     html.Div([
-        html.A("Download Default Coils File", id="download-coils-link", href="inventory.xlsx", download="inventory.xlsx"),
+        html.A("Download Default Coils File", id="download-coils-link", href="/assets/inventory.xlsx", download="inventory.xlsx"),
         html.Br(),
-        html.A("Download Default Orders File", id="download-orders-link", href="order.xlsx", download="order.xlsx"),
+        html.A("Download Default Orders File", id="download-orders-link", href="/assets/order.xlsx", download="order.xlsx"),
     ], style={'margin-bottom': '20px'}),
     
     # Instructions for running optimization
