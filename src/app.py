@@ -4,20 +4,11 @@ from dash.exceptions import PreventUpdate
 import pandas as pd
 from scipy.optimize import linprog
 import base64
-import io
-import os
+import io  # Needed to handle bytes as a file-like object
 
 # Initialize the Dash app
 app = dash.Dash(__name__)
-
-# Define paths for default files
-DEFAULT_COILS_PATH = 'inventory.xlsx'
-DEFAULT_ORDERS_PATH = 'order.xlsx'
-
-# Ensure default files exist in the assets directory
-for file in [DEFAULT_COILS_PATH, DEFAULT_ORDERS_PATH]:
-    if not os.path.isfile(file):
-        raise FileNotFoundError(f"Default file '{file}' not found in 'assets' directory.")
+server = app.server
 
 # Define the layout of the app
 app.layout = html.Div([
@@ -121,12 +112,13 @@ def update_output(coils_file, orders_file, coils_filename, orders_filename, n_cl
         raise PreventUpdate
 
     try:
-        # Decode and process the uploaded files
-        def parse_file(file_contents):
-            content_type, content_string = file_contents.split(',')
+        # Function to decode and parse file contents
+        def parse_file(contents):
+            content_type, content_string = contents.split(',')
             decoded = base64.b64decode(content_string)
             return pd.read_excel(io.BytesIO(decoded))
 
+        # Parse uploaded files directly
         coils_df = parse_file(coils_file)
         orders_df = parse_file(orders_file)
         
