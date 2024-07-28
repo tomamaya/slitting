@@ -2,5 +2,6 @@ dash==2.15.0
 Flask==2.2.2
 pandas==2.0.3
 scipy==1.14.0
+numpy==1.24.3
 gunicorn
 dash-tools

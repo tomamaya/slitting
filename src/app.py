@@ -3,19 +3,21 @@ from dash import dcc, html, Input, Output, State
 from dash.exceptions import PreventUpdate
 import pandas as pd
 from scipy.optimize import linprog
-import base64
-import io
-from flask import send_from_directory
+from flask import Flask, request, send_from_directory
+import os
 
-
-
-# Initialize the Dash app
-app = dash.Dash(__name__)
-server = app.server
+# Initialize the Flask and Dash apps
+server = Flask(__name__)
+app = dash.Dash(__name__, server=server)
 
 # Define paths for default files
 DEFAULT_COILS_PATH = 'inventory.xlsx'
 DEFAULT_ORDERS_PATH = 'order.xlsx'
+
+# Ensure default files exist in the current directory
+for file in [DEFAULT_COILS_PATH, DEFAULT_ORDERS_PATH]:
+    if not os.path.isfile(file):
+        raise FileNotFoundError(f"Default file '{file}' not found.")
 
 # Define the layout of the app
 app.layout = html.Div([
@@ -119,12 +121,17 @@ def update_output(coils_file, orders_file, coils_filename, orders_filename, n_cl
         raise PreventUpdate
 
     try:
-        # Decode the uploaded files
-        content_type, content_string = coils_file.split(',')
-        coils_df = pd.read_excel(io.BytesIO(base64.b64decode(content_string)))
-        
-        content_type, content_string = orders_file.split(',')
-        orders_df = pd.read_excel(io.BytesIO(base64.b64decode(content_string)))
+        # Decode and process the uploaded files
+        import base64
+        import io
+
+        def parse_file(file_contents):
+            content_type, content_string = file_contents.split(',')
+            decoded = base64.b64decode(content_string)
+            return pd.read_excel(io.BytesIO(decoded))
+
+        coils_df = parse_file(coils_file)
+        orders_df = parse_file(orders_file)
         
         # Convert DataFrame to list of tuples
         coils = list(coils_df.itertuples(index=False, name=None))
@@ -155,7 +162,7 @@ def update_output(coils_file, orders_file, coils_filename, orders_filename, n_cl
         return f"An error occurred: {e}", ""
 
 # Route to serve static files
-@app.server.route('/download/<path:filename>')
+@server.route('/download/<path:filename>')
 def download_file(filename):
     return send_from_directory('.', filename, as_attachment=True)
 
