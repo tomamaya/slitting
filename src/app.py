@@ -7,10 +7,11 @@ import base64
 import io
 from flask import send_from_directory
 
-server = app.server
+
 
 # Initialize the Dash app
 app = dash.Dash(__name__)
+server = app.server
 
 # Define paths for default files
 DEFAULT_COILS_PATH = 'inventory.xlsx'
