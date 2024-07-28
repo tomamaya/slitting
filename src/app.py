@@ -7,6 +7,8 @@ import base64
 import io
 from flask import send_from_directory
 
+server = app.server
+
 # Initialize the Dash app
 app = dash.Dash(__name__)
 
