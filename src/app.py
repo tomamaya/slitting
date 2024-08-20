@@ -4,7 +4,9 @@ from dash.exceptions import PreventUpdate
 import pandas as pd
 from scipy.optimize import linprog
 import base64
-import io  # Needed to handle bytes as a file-like object
+import io
+import plotly.graph_objects as go
+import plotly.express as px
 
 # Initialize the Dash app
 app = dash.Dash(__name__)
@@ -48,7 +50,39 @@ app.layout = html.Div([
     
     # Output containers
     html.Div(id='upload-status'),
-    html.Div(id='patterns-output')
+    html.Div(id='patterns-output'),
+    
+    # Graph controls
+    html.Div([
+        html.Label('Select Patterns Range:'),
+        dcc.Slider(
+            id='pattern-slider',
+            min=0,
+            max=0,  # Updated in callback
+            value=0,
+            marks={i: str(i) for i in range(0, 101, 10)},  # Default marks
+            step=1
+        ),
+        html.Label('Adjust Bar Width:'),
+        dcc.Slider(
+            id='bar-width-slider',
+            min=0.1,
+            max=1.0,
+            step=0.1,
+            value=0.4
+        ),
+        html.Label('Adjust Bar Height:'),
+        dcc.Slider(
+            id='bar-height-slider',
+            min=0.1,
+            max=2.0,
+            step=0.1,
+            value=1.0
+        )
+    ], style={'margin-top': '20px'}),
+    
+    # Graph output
+    dcc.Graph(id='patterns-graph')
 ])
 
 # Define the knapsack problem
@@ -96,15 +130,21 @@ def minimize_shear_adjustments(patterns):
 
 # Define callback to process uploaded files and run optimization
 @app.callback(
-    Output('upload-status', 'children'),
-    Output('patterns-output', 'children'),
-    Input('upload-coils', 'contents'),
-    Input('upload-orders', 'contents'),
-    State('upload-coils', 'filename'),
-    State('upload-orders', 'filename'),
-    Input('run-button', 'n_clicks')
+    [Output('upload-status', 'children'),
+     Output('patterns-output', 'children'),
+     Output('patterns-graph', 'figure'),
+     Output('pattern-slider', 'max'),
+     Output('pattern-slider', 'value')],
+    [Input('upload-coils', 'contents'),
+     Input('upload-orders', 'contents'),
+     Input('run-button', 'n_clicks'),
+     Input('pattern-slider', 'value'),
+     Input('bar-width-slider', 'value'),
+     Input('bar-height-slider', 'value')],
+    [State('upload-coils', 'filename'),
+     State('upload-orders', 'filename')]
 )
-def update_output(coils_file, orders_file, coils_filename, orders_filename, n_clicks):
+def update_output(coils_file, orders_file, n_clicks, selected_range, bar_width, bar_height, coils_filename, orders_filename):
     if n_clicks == 0:
         raise PreventUpdate
 
@@ -144,11 +184,60 @@ def update_output(coils_file, orders_file, coils_filename, orders_filename, n_cl
                 [html.Tr([html.Td(str(pattern[0])), html.Td(format_pattern(pattern[1]))]) for pattern in adjusted_patterns]
             )
         ])
+
+        # Update pattern slider max value
+        pattern_slider_max = len(patterns) - 1
+        pattern_slider_value = min(selected_range, pattern_slider_max)
         
-        return "Files successfully uploaded and processed.", patterns_output
+        # Create the graph
+        fig = go.Figure()
+        color_scale = px.colors.qualitative.Plotly  # Use Plotly's qualitative color scale
+
+        # Determine the patterns to display
+        start_index = pattern_slider_value
+        end_index = min(start_index + 10, len(patterns))
+        patterns_to_display = patterns[start_index:end_index]
+
+        for i, pattern in enumerate(patterns_to_display):
+            pattern_widths = pattern[1]
+            for j, width in enumerate(pattern_widths):
+                fig.add_trace(go.Bar(
+                    y=[f'Pattern {start_index + i + 1}'],
+                    x=[width],
+                    name=f'Width {width}',
+                    marker_color=color_scale[j % len(color_scale)],
+                    width=bar_width,  # Set the bar width
+                    orientation='h',  # Horizontal bars
+                    text=[f'{width}'],  # Display size inside the bar
+                    textposition='inside'  # Place text inside the bars
+                ))
+
+        fig.update_layout(
+            title='Sizes Within Each Pattern',
+            xaxis_title='Width (mm)',
+            yaxis_title='Pattern',
+            barmode='stack',
+            xaxis=dict(
+                title='Width',
+                tickmode='linear',
+                tick0=0,
+                dtick=5,  # Adjust as needed for scale-like behavior
+                tickvals=[i for i in range(0, max(max(widths) for coil, widths in patterns) + 10, 5)],  # Set x-axis tick values
+                ticktext=[str(i) for i in range(0, max(max(widths) for coil, widths in patterns) + 10, 5)]  # Set x-axis tick text
+            ),
+            yaxis=dict(
+                title='Pattern',
+                tickvals=[f'Pattern {i+1}' for i in range(len(patterns_to_display))],
+                ticktext=[f'Pattern {i+1}' for i in range(len(patterns_to_display))]
+            ),
+            height=600 * bar_height  # Adjust height based on bar height
+        )
+
+        # Return the updated graph and other outputs
+        return "Files successfully uploaded and processed.", patterns_output, fig, pattern_slider_max, pattern_slider_value
 
     except Exception as e:
-        return f"An error occurred: {e}", ""
+        return f"An error occurred: {e}", "", go.Figure(), 0, 0  # Return an empty figure on error
 
 # Run the app
 if __name__ == '__main__':
